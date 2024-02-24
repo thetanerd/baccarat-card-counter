@@ -1,0 +1,271 @@
+<html>
+    <body>
+<p>Type the baccarat values (0-9) of all cards which have been removed from the shoe</p>
+<textarea id="remove-cards" oninput="recalculate()"></textarea>
+<p>Type your minimum RTP to place a bet</p>
+<textarea id="minRTP" oninput="recalculate()">98.85</textarea>
+<p id="best-bet"></p>
+<p id="banker-ev"></p>
+<p id="player-ev"></p>
+<p id="banker-win-chance"></p>
+<p id="player-win-chance"></p>
+<p id="tie-win-chance"></p>
+<script>
+let shoe = {}
+let shoeTotal = 0
+let tieChance = 0
+let playerChance = 0
+let bankerChance = 0
+let bestBetP = document.getElementById("best-bet")
+let bankEVP = document.getElementById("banker-ev")
+let playerEVP = document.getElementById("player-ev")
+let bankP = document.getElementById("banker-win-chance")
+let playerP = document.getElementById("player-win-chance")
+let tieP = document.getElementById("tie-win-chance")
+let removedCardsI = document.getElementById("remove-cards")
+let minRTPI = document.getElementById("minRTP")
+let whoWillDraw = function (playerScore, bankerScore){
+    if(playerScore >= 8 || bankerScore >= 8){
+        return 'noone'
+    }
+    if(playerScore == 6 || playerScore == 7){
+        if(bankerScore <= 5){
+            return 'banker only'
+        }
+        return 'noone'
+    }
+    return 'player'
+}
+let willBankerDraw = function(bankerScore, playerCard3){
+    if(bankerScore <= 2){
+        return true
+    }
+    else if(bankerScore == 3){
+        if(playerCard3 != 8){
+            return true
+        }
+    }
+    else if(bankerScore == 4){
+        if(playerCard3 != 1 && playerCard3 != 8 && playerCard3 != 9 && playerCard3 != 0){
+            return true
+        }
+    }
+    else if(bankerScore == 5){
+        if(playerCard3 == 4 || playerCard3 == 5 || playerCard3 == 6 || playerCard3 == 7){
+            return true
+        }
+    }
+    else if(bankerScore == 6){
+        if(playerCard3 == 6 || playerCard3 == 7){
+            return true
+        }
+    }
+    return false
+}
+let determineOutcomeAndOdds = function(playerCard1, bankerCard1, playerCard2, bankerCard2){
+    let playerCard1chance = shoe[playerCard1] / shoeTotal
+    let bankerCard1chance = shoe[bankerCard1]
+    if(playerCard1 == bankerCard1){
+        bankerCard1chance--
+    }
+    bankerCard1chance /= shoeTotal - 1
+    let playerCard2chance = shoe[playerCard2]
+    if(playerCard2 == playerCard1){
+        playerCard2chance--
+    }
+    if(playerCard2 == bankerCard1){
+        playerCard2chance--
+    }
+    playerCard2chance /= shoeTotal - 2
+    let bankerCard2chance = shoe[bankerCard2]
+    if(bankerCard2 == playerCard1){
+        bankerCard2chance--
+    }
+    if(bankerCard2 == playerCard2){
+        bankerCard2chance--
+    }
+    if(bankerCard2 == bankerCard1){
+        bankerCard2chance--
+    }
+    bankerCard2chance /= shoeTotal - 3
+    let currentChance = playerCard1chance * bankerCard1chance * playerCard2chance * bankerCard2chance
+    let playerScore = (playerCard1 + playerCard2) % 10
+    let bankerScore = (bankerCard1 + bankerCard2) % 10
+    let whoDraws = whoWillDraw(playerScore, bankerScore)
+    if(whoDraws == 'noone'){
+        if(playerScore > bankerScore){
+            playerChance += currentChance
+        }
+        else if (bankerScore > playerScore){
+            bankerChance += currentChance
+        }
+        else{
+            tieChance += currentChance
+        }
+    }
+    else if(whoDraws == 'banker only'){
+        for(let bankerCard3 = 0; bankerCard3 < 10; bankerCard3++){
+            bankerCard3chance = shoe[bankerCard3]
+            if(bankerCard3 == playerCard1){
+                bankerCard3chance--
+            }
+            if(bankerCard3 == bankerCard1){
+                bankerCard3chance--
+            }
+            if(bankerCard3 == playerCard2){
+                bankerCard3chance--
+            }
+            if(bankerCard3 == bankerCard2){
+                bankerCard3chance--
+            }
+            bankerCard3chance /= shoeTotal - 4
+            let newChance = currentChance * bankerCard3chance
+            let newBankerScore = (bankerScore + bankerCard3) % 10
+            if(playerScore > newBankerScore){
+                playerChance += newChance
+            }
+            else if (newBankerScore > playerScore){
+                bankerChance += newChance
+            }
+            else{
+                tieChance += newChance
+            }
+        }
+    }
+    else if(whoDraws == 'player'){
+        for(let playerCard3 = 0; playerCard3 < 10; playerCard3++){
+            let playerCard3chance = shoe[playerCard3]
+            if(playerCard3 == playerCard1){
+                playerCard3chance--
+            }
+            if(playerCard3 == bankerCard1){
+                playerCard3chance--
+            }
+            if(playerCard3 == playerCard2){
+                playerCard3chance--
+            }
+            if(playerCard3 == bankerCard2){
+                playerCard3chance--
+            }
+            playerCard3chance /= shoeTotal - 4
+            let newCurrentChance = currentChance * playerCard3chance
+            let newPlayerScore = (playerScore + playerCard3) % 10
+            if(willBankerDraw(bankerScore, playerCard3)){
+                for(let bankerCard3 = 0; bankerCard3 < 10; bankerCard3++){
+                    bankerCard3chance = shoe[bankerCard3]
+                    if(bankerCard3 == playerCard1){
+                        bankerCard3chance--
+                    }
+                    if(bankerCard3 == bankerCard1){
+                        bankerCard3chance--
+                    }
+                    if(bankerCard3 == playerCard2){
+                        bankerCard3chance--
+                    }
+                    if(bankerCard3 == bankerCard2){
+                        bankerCard3chance--
+                    }
+                    if(bankerCard3 == playerCard3){
+                    bankerCard3chance--
+                    }
+                    bankerCard3chance /= shoeTotal - 5
+                    let newChance = newCurrentChance * bankerCard3chance
+                    let newBankerScore = (bankerScore + bankerCard3) % 10
+                    if(newPlayerScore > newBankerScore){
+                        playerChance += newChance
+                    }
+                    else if (newBankerScore > newPlayerScore){
+                        bankerChance += newChance
+                    }
+                    else{
+                        tieChance += newChance
+                    }
+                }
+            }
+            else{
+                if(newPlayerScore > bankerScore){
+                    playerChance += newCurrentChance
+                }
+                else if (bankerScore > newPlayerScore){
+                    bankerChance += newCurrentChance
+                }
+                else{
+                    tieChance += newCurrentChance
+                }
+            }
+        }
+    }
+}
+let calculateOutcomes = function(){
+    tieChance = 0
+    playerChance = 0
+    bankerChance = 0
+for(let playerCard1 = 0; playerCard1 < 10; playerCard1++){
+        for(let bankerCard1 = 0; bankerCard1 < 10; bankerCard1++){
+                for(let playerCard2 = 0; playerCard2 < 10; playerCard2++){
+                    for(let bankerCard2 = 0; bankerCard2 < 10; bankerCard2++){
+                    determineOutcomeAndOdds(playerCard1, bankerCard1, playerCard2, bankerCard2)
+                    }
+                }
+            }
+    }
+}
+let recalculate = function(){
+shoe = {
+'0' : 128,
+'1' : 32,
+'2' : 32,
+'3' : 32,
+'4' : 32,
+'5' : 32,
+'6' : 32,
+'7' : 32,
+'8' : 32,
+'9' : 32
+}
+shoeTotal = 416
+removedCards = removedCardsI.value
+for(let i = 0; i < removedCards.length; i++){
+    if(removedCards[i] == '0' || removedCards[i] == '2' || removedCards[i] == '3' || removedCards[i] == '4' || removedCards[i] == '5' || removedCards[i] == '6' || removedCards[i] == '7' || removedCards[i] == '8' || removedCards[i] == '9'){
+    shoe[removedCards[i]]--
+    shoeTotal--
+    if(shoe[removedCards[i]] < 0){
+        console.log('Too many Cards Removed!')
+    }
+        }
+    }
+calculateOutcomes()
+    let bankerChanceN = bankerChance
+    let playerChanceN = playerChance
+    let tieChanceN = tieChance
+    let bankerEV = ((bankerChanceN * 1.95) + tieChanceN) * 100
+    let playerEV = ((playerChanceN * 2) + tieChanceN) * 100
+    let minRTP = minRTPI.value
+    if(bankerEV > playerEV){
+    if(bankerEV >= minRTP){
+    bestBetP.innerHTML = "It is currently best to bet on the Banker."
+    }
+    else{
+        bestBetP.innerHTML = "It is currently best to not bet."
+    }
+    }
+    else if(bankerEV < playerEV){
+        if(playerEV >= minRTP){
+    bestBetP.innerHTML = "It is currently best to bet on the Player."
+        }
+        else{
+        bestBetP.innerHTML = "It is currently best to not bet."
+    }
+    }
+    else{
+    bestBetP.innerHTML = "The Banker and the Player currently have the same RTP."
+    }
+    bankEVP.innerHTML = "The Banker currently has an RTP of " + bankerEV.toFixed(4) + '%'
+    playerEVP.innerHTML = "The Player currently has an RTP of " + playerEV.toFixed(4) + '%'
+    bankP.innerHTML = "The current chance for the Banker to win is " + (bankerChanceN * 100).toFixed(2) + "%"
+    playerP.innerHTML = "The current chance for the Player to win is " + (playerChanceN * 100).toFixed(2) + "%"
+    tieP.innerHTML = "The current chance for a tie is " + (tieChanceN * 100).toFixed(2) + "%"
+}
+</script>
+</body>
+</html>
